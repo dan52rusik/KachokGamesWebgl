@@ -1,0 +1,4 @@
+interface:
+  display_name: "Godot Game Builder"
+  short_description: "Build full Godot 4 projects"
+  default_prompt: "Use $godot-game-builder to plan and build a Godot 4 game in this workspace."
