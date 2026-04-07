@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -26,9 +25,9 @@ namespace Tutorial
         [SerializeField] private string rightForearmName = "Arm_R.002_end";
         [SerializeField] private string leftForearmName  = "Arm_L.002_end";
 
-        [Header("Поиск гантелей")]
-        [Tooltip("Часть имени гантели для поиска")]
-        [SerializeField] private string dumbbellSearchName = "гантел";
+        [Header("Гантели")]
+        [SerializeField] private Dumbbell rightDumbbell;
+        [SerializeField] private Dumbbell leftDumbbell;
         [Tooltip("Дистанция обнаружения гантелей")]
         [SerializeField] private float detectRadius = 3f;
 
@@ -104,29 +103,8 @@ namespace Tutorial
             Debug.Log($"[Workout] Правое предплечье: {_rightForearm?.name ?? "✗"}");
             Debug.Log($"[Workout] Левое предплечье:  {_leftForearm?.name ?? "✗"}");
 
-            // Найти гантели
-            Transform[] allDumbbells = FindAllInSceneContaining(dumbbellSearchName);
-            Debug.Log($"[Workout] Найдено гантелей: {allDumbbells.Length}");
-
-            if (allDumbbells.Length > 0)
-            {
-                _rightDumbbell = allDumbbells[0];
-                // Сохраняем исходное положение
-                _rightOrigParent = _rightDumbbell.parent;
-                _rightOrigPos    = _rightDumbbell.position;
-                _rightOrigRot    = _rightDumbbell.rotation;
-                _rightOrigScale  = _rightDumbbell.localScale;
-                Debug.Log($"[Workout] ✓ Правая гантель: {_rightDumbbell.name}");
-            }
-            if (allDumbbells.Length > 1)
-            {
-                _leftDumbbell = allDumbbells[1];
-                _leftOrigParent = _leftDumbbell.parent;
-                _leftOrigPos    = _leftDumbbell.position;
-                _leftOrigRot    = _leftDumbbell.rotation;
-                _leftOrigScale  = _leftDumbbell.localScale;
-                Debug.Log($"[Workout] ✓ Левая гантель:  {_leftDumbbell.name}");
-            }
+            AssignDumbbells();
+            CacheDumbbellState();
 
             _bonesReady = true;
         }
@@ -322,6 +300,48 @@ namespace Tutorial
         private void ResetUI() => workoutUI?.UpdateProgress(_currentClicks, clicksPerSet);
 
         // ── Утилиты ───────────────────────────────────────────
+        private void AssignDumbbells()
+        {
+            if (rightDumbbell != null && leftDumbbell != null)
+            {
+                Debug.Log("[Workout] Гантели назначены через Inspector");
+                return;
+            }
+
+            Dumbbell[] foundDumbbells = FindObjectsByType<Dumbbell>(FindObjectsSortMode.None);
+            Debug.Log($"[Workout] Найдено гантелей с компонентом Dumbbell: {foundDumbbells.Length}");
+
+            if (rightDumbbell == null && foundDumbbells.Length > 0)
+                rightDumbbell = foundDumbbells[0];
+
+            if (leftDumbbell == null && foundDumbbells.Length > 1)
+                leftDumbbell = foundDumbbells[1];
+        }
+
+        private void CacheDumbbellState()
+        {
+            _rightDumbbell = rightDumbbell != null ? rightDumbbell.transform : null;
+            _leftDumbbell = leftDumbbell != null ? leftDumbbell.transform : null;
+
+            if (_rightDumbbell != null)
+            {
+                _rightOrigParent = _rightDumbbell.parent;
+                _rightOrigPos = _rightDumbbell.position;
+                _rightOrigRot = _rightDumbbell.rotation;
+                _rightOrigScale = _rightDumbbell.localScale;
+                Debug.Log($"[Workout] ✓ Правая гантель: {_rightDumbbell.name}");
+            }
+
+            if (_leftDumbbell != null)
+            {
+                _leftOrigParent = _leftDumbbell.parent;
+                _leftOrigPos = _leftDumbbell.position;
+                _leftOrigRot = _leftDumbbell.rotation;
+                _leftOrigScale = _leftDumbbell.localScale;
+                Debug.Log($"[Workout] ✓ Левая гантель: {_leftDumbbell.name}");
+            }
+        }
+
         private static Transform FindByName(Transform root, string name)
         {
             if (root.name == name) return root;
@@ -331,22 +351,6 @@ namespace Tutorial
                 if (f != null) return f;
             }
             return null;
-        }
-
-        private static Transform[] FindAllInSceneContaining(string substring)
-        {
-            var result = new List<Transform>();
-            foreach (var root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
-                FindContaining(root.transform, substring, result);
-            return result.ToArray();
-        }
-
-        private static void FindContaining(Transform t, string sub, List<Transform> list)
-        {
-            if (t.name.Contains(sub))
-                list.Add(t);
-            for (int i = 0; i < t.childCount; i++)
-                FindContaining(t.GetChild(i), sub, list);
         }
     }
 }
