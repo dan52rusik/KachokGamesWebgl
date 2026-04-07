@@ -1,5 +1,6 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Tutorial
 {
@@ -8,15 +9,27 @@ namespace Tutorial
         [SerializeField] private GameObject[] hearts;
         [SerializeField] private TextMeshProUGUI treeCountText;
 
+        [Header("Roblox Style")]
+        [SerializeField] private bool applyRobloxStyle = true;
+        [SerializeField] private Color cardColor = new Color32(255, 210, 40, 245);
+        [SerializeField] private Color cardTextColor = new Color32(28, 20, 10, 255);
+        [SerializeField] private Color cardShadowColor = new Color32(0, 0, 0, 160);
+
+        private int _treeCount;
+
+        private void Awake()
+        {
+            if (applyRobloxStyle)
+                ApplyRobloxStyle();
+        }
 
         public void SetHealth(int health)
         {
-            if(health > hearts.Length) return;
+            if (health > hearts.Length)
+                return;
 
             for (int i = 0; i < hearts.Length; i++)
-            {
                 hearts[i].SetActive(health > i);
-            }
         }
 
         public int TreeCount
@@ -25,10 +38,78 @@ namespace Tutorial
             set
             {
                 _treeCount = value;
-                
-                treeCountText.SetText(_treeCount.ToString());
+
+                if (treeCountText != null)
+                    treeCountText.SetText(_treeCount.ToString());
             }
         }
-        private int _treeCount;
+
+        private void ApplyRobloxStyle()
+        {
+            StyleTreeCounter();
+            StyleHearts();
+        }
+
+        private void StyleTreeCounter()
+        {
+            if (treeCountText == null)
+                return;
+
+            RectTransform rect = treeCountText.rectTransform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(24f, -18f);
+            rect.sizeDelta = new Vector2(220f, 42f);
+
+            treeCountText.fontSize = 24f;
+            treeCountText.fontStyle = FontStyles.Bold;
+            treeCountText.color = cardTextColor;
+            treeCountText.alignment = TextAlignmentOptions.Left;
+            treeCountText.enableWordWrapping = false;
+
+            Image image = EnsureBackground(treeCountText.gameObject);
+            image.color = cardColor;
+
+            Outline outline = treeCountText.gameObject.GetComponent<Outline>();
+            if (outline == null)
+                outline = treeCountText.gameObject.AddComponent<Outline>();
+
+            outline.effectColor = cardShadowColor;
+            outline.effectDistance = new Vector2(4f, -4f);
+            outline.useGraphicAlpha = true;
+        }
+
+        private void StyleHearts()
+        {
+            for (int i = 0; i < hearts.Length; i++)
+            {
+                if (hearts[i] == null)
+                    continue;
+
+                RectTransform rect = hearts[i].GetComponent<RectTransform>();
+                if (rect == null)
+                    continue;
+
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(0f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                rect.anchoredPosition = new Vector2(24f + i * 48f, -68f);
+                rect.sizeDelta = new Vector2(38f, 38f);
+
+                Image image = hearts[i].GetComponent<Image>();
+                if (image != null)
+                    image.color = new Color32(255, 86, 86, 255);
+            }
+        }
+
+        private static Image EnsureBackground(GameObject target)
+        {
+            Image image = target.GetComponent<Image>();
+            if (image == null)
+                image = target.AddComponent<Image>();
+
+            return image;
+        }
     }
 }

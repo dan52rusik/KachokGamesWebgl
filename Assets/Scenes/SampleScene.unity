@@ -2424,7 +2424,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd12733ad317e86439cb06c46794f852, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tutorial.DumbbellWorkout
-  workoutUI: {fileID: 0}
+  workoutHUD: {fileID: 0}
   detectRadius: 3
   rightArmBoneName: Arm_R.001
   leftArmBoneName: Arm_L.001
