@@ -67,11 +67,15 @@ namespace Tutorial
         private Vector3    _rightOrigScale,  _leftOrigScale;
 
         // Blend 0=покой 1=поднято
-        private float _rightT, _rightTarget;
-        private float _leftT,  _leftTarget;
+        private float _rightT;
+        private float _leftT;
         private readonly List<float> _recentClickTimes = new List<float>();
         private float _currentTempoMultiplier = 1f;
         private float _currentClickSpeed;
+        private int _rightRepQueue;
+        private int _leftRepQueue;
+        private Coroutine _rightRepRoutine;
+        private Coroutine _leftRepRoutine;
 
         // ─────────────────────────────────────────────────────────
         private void Start()
@@ -158,8 +162,6 @@ namespace Tutorial
             if (kb.spaceKey.wasPressedThisFrame)                       OnClickPump();
 
             // Плавный blend
-            _rightT = Mathf.MoveTowards(_rightT, _rightTarget, Time.deltaTime * curlSpeed);
-            _leftT  = Mathf.MoveTowards(_leftT,  _leftTarget,  Time.deltaTime * curlSpeed);
             UpdateTempo();
         }
 
@@ -213,8 +215,9 @@ namespace Tutorial
 
             _isWorking   = true;
             _clickCount  = 0;
-            _rightTarget = _leftTarget = 0f;
             _rightT      = _leftT = 0f;
+            _rightRepQueue = _leftRepQueue = 0;
+            _rightRepRoutine = _leftRepRoutine = null;
             _recentClickTimes.Clear();
             _currentTempoMultiplier = 1f;
             _currentClickSpeed = 0f;
@@ -240,8 +243,12 @@ namespace Tutorial
         // ── Положить + остановить ─────────────────────────────────
         private void PutDownAndStop()
         {
-            _rightTarget = _leftTarget = 0f;
             _rightT      = _leftT = 0f;
+            _rightRepQueue = _leftRepQueue = 0;
+            if (_rightRepRoutine != null) StopCoroutine(_rightRepRoutine);
+            if (_leftRepRoutine != null) StopCoroutine(_leftRepRoutine);
+            _rightRepRoutine = null;
+            _leftRepRoutine = null;
 
             RestoreDumbbell(_rightDb, _rightOrigParent, _rightOrigPos, _rightOrigRot, _rightOrigScale);
             RestoreDumbbell(_leftDb,  _leftOrigParent,  _leftOrigPos,  _leftOrigRot,  _leftOrigScale);
@@ -275,8 +282,18 @@ namespace Tutorial
             _clickCount++;
             bool useRight = (_clickCount % 2 == 1);
 
-            if (useRight) { _rightTarget = 1f; StartCoroutine(LowerAfter(true));  }
-            else          { _leftTarget  = 1f; StartCoroutine(LowerAfter(false)); }
+            if (useRight)
+            {
+                _rightRepQueue++;
+                if (_rightRepRoutine == null)
+                    _rightRepRoutine = StartCoroutine(PlayRep(true));
+            }
+            else
+            {
+                _leftRepQueue++;
+                if (_leftRepRoutine == null)
+                    _leftRepRoutine = StartCoroutine(PlayRep(false));
+            }
 
             // Стамина → эффективность
             RegisterTempoClick();
@@ -290,10 +307,47 @@ namespace Tutorial
                 _session.EndSession();
         }
 
-        private IEnumerator LowerAfter(bool right)
+        private IEnumerator PlayRep(bool right)
         {
-            yield return new WaitForSeconds(holdTime);
-            if (right) _rightTarget = 0f; else _leftTarget = 0f;
+            while (_isWorking && (right ? _rightRepQueue : _leftRepQueue) > 0)
+            {
+                if (right) _rightRepQueue--;
+                else _leftRepQueue--;
+
+                float repSpeed = Mathf.Max(1f, curlSpeed * (0.75f + _currentTempoMultiplier * 0.25f));
+                float upDuration = 1f / repSpeed;
+                float downDuration = 1f / (repSpeed * 0.92f);
+                float topPause = Mathf.Lerp(holdTime, 0.04f, Mathf.InverseLerp(1f, maxTempoMultiplier, _currentTempoMultiplier));
+
+                yield return AnimateArm(right, right ? _rightT : _leftT, 1f, upDuration);
+
+                if (topPause > 0f)
+                    yield return new WaitForSeconds(topPause);
+
+                yield return AnimateArm(right, 1f, 0f, downDuration);
+            }
+
+            if (right) _rightRepRoutine = null;
+            else _leftRepRoutine = null;
+        }
+
+        private IEnumerator AnimateArm(bool right, float from, float to, float duration)
+        {
+            float elapsed = 0f;
+            duration = Mathf.Max(0.01f, duration);
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float value = Mathf.SmoothStep(from, to, t);
+                if (right) _rightT = value;
+                else _leftT = value;
+                yield return null;
+            }
+
+            if (right) _rightT = to;
+            else _leftT = to;
         }
 
         // ── Утилиты ───────────────────────────────────────────────
