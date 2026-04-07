@@ -1,300 +1,352 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Tutorial
 {
     /// <summary>
-    /// Тренировка-кликер. Поочерёдный бицепс-кёрл.
-    /// Вращение костей — в LateUpdate (перекрывает Animator).
+    /// Кликер-тренировка.
     ///
-    /// Если рука гнётся в неправильную сторону — смени знак Curl Angle в Inspector
-    /// прямо в Play Mode и сразу увидишь результат.
+    /// Гантели лежат на сцене. Подходишь → подсказка.
+    /// E → берёшь в руки, начинается кликер.
+    /// ЛКМ / Пробел → клик (руки чередуются).
+    /// X → кладёшь обратно.
     /// </summary>
     public class DumbbellWorkout : MonoBehaviour
     {
-        [Header("Ссылки")]
+        [Header("UI (опционально)")]
         [SerializeField] private WorkoutUI workoutUI;
 
-        [Header("Поиск гантелей")]
-        [SerializeField] private float detectRadius = 3f;
-
-        [Header("Кости рук")]
+        [Header("Кости рук (верхняя часть — для кёрла)")]
         [SerializeField] private string rightArmBoneName = "Arm_R.001";
         [SerializeField] private string leftArmBoneName  = "Arm_L.001";
 
+        [Header("Кости предплечья (к ним крепятся гантели)")]
+        [SerializeField] private string rightForearmName = "Arm_R.002_end";
+        [SerializeField] private string leftForearmName  = "Arm_L.002_end";
+
+        [Header("Поиск гантелей")]
+        [Tooltip("Часть имени гантели для поиска")]
+        [SerializeField] private string dumbbellSearchName = "гантел";
+        [Tooltip("Дистанция обнаружения гантелей")]
+        [SerializeField] private float detectRadius = 3f;
+
         [Header("Бицепс-кёрл")]
-        [Tooltip("Угол кёрла. Если рука идёт внутрь — смени знак (напр. 80 → -80).")]
         [SerializeField] private float curlAngle = -80f;
-        [Tooltip("Скорость подъёма/опускания")]
         [SerializeField] private float curlSpeed = 6f;
-        [Tooltip("Пауза в верхней точке (сек)")]
         [SerializeField] private float holdTime  = 0.3f;
 
-        // ── Состояние ─────────────────────────────────────────
-        private Dumbbell   _nearbyDumbbell;
-        private Dumbbell   _currentDumbbellR;
-        private Dumbbell   _currentDumbbellL;
-        private bool       _isWorking;
-        private int        _currentClicks;
-        private float      _lastClickTime;
-        private int        _clickCount;
+        [Header("Кликер")]
+        [SerializeField] private int   clicksPerSet = 15;
+        [SerializeField] private int   musclePerSet = 10;
+        [SerializeField] private float decayDelay   = 1.5f;
+        [SerializeField] private float decayRate    = 3f;
 
-        private Player     _player;
-        private Animator   _anim;
-        private bool       _hasWorkoutParam;
-        private Dumbbell[] _allDumbbells;
+        // Состояние
+        private bool  _isWorking;
+        private int   _currentClicks, _clickCount;
+        private float _lastClickTime;
+        private int   _totalMuscle;
+        private bool  _nearDumbbells;
 
-        // Кости рук и их исходные локальные повороты
-        private Transform  _rightBone;
-        private Transform  _leftBone;
-        private Quaternion _rightRestRot;
-        private Quaternion _leftRestRot;
-        private bool       _restCached;
+        private Player _player;
 
-        // Точки крепления гантелей (прямые дети костей рук = запястья)
-        private Transform _rightWrist;
-        private Transform _leftWrist;
+        // Кости
+        private Transform  _rightBone, _leftBone;
+        private Quaternion _rightRestRot, _leftRestRot;
+        private Transform  _rightForearm, _leftForearm;
+        private bool       _bonesReady;
 
-        // Blend t: 0 = покой, 1 = поднято
+        // Гантели
+        private Transform _rightDumbbell, _leftDumbbell;
+        // Исходные данные (где лежали на земле)
+        private Transform  _rightOrigParent, _leftOrigParent;
+        private Vector3    _rightOrigPos,    _leftOrigPos;
+        private Quaternion _rightOrigRot,    _leftOrigRot;
+        private Vector3    _rightOrigScale,  _leftOrigScale;
+
+        // Blend: 0 = покой, 1 = поднято
         private float _rightT, _rightTarget;
         private float _leftT,  _leftTarget;
 
-        // ── Init ──────────────────────────────────────────────
+        // ── Start ─────────────────────────────────────────────
         private void Start()
         {
             _player = GetComponent<Player>();
-            _anim   = GetComponent<Animator>();
-
-            if (_anim != null)
-                foreach (AnimatorControllerParameter p in _anim.parameters)
-                    if (p.name == "isWorkout") _hasWorkoutParam = true;
-
             workoutUI?.SetClickCallback(OnClickPump);
-
-            _allDumbbells = FindObjectsByType<Dumbbell>(FindObjectsSortMode.None);
-            Debug.Log($"[DumbbellWorkout] Гантелей на сцене: {_allDumbbells.Length}");
-
-            StartCoroutine(CacheBones());
+            StartCoroutine(Setup());
         }
 
-        private IEnumerator CacheBones()
+        private IEnumerator Setup()
         {
-            yield return null; // ждём кадр — Animator встаёт в дефолт
+            yield return null;
 
-            _rightBone = FindBoneByName(transform, rightArmBoneName);
-            _leftBone  = FindBoneByName(transform, leftArmBoneName);
+            // Кости рук
+            _rightBone = FindByName(transform, rightArmBoneName);
+            _leftBone  = FindByName(transform, leftArmBoneName);
 
-            if (_rightBone != null)
+            if (_rightBone != null) { _rightRestRot = _rightBone.localRotation; Debug.Log($"[Workout] ✓ Правая кость: {_rightBone.name}"); }
+            else Debug.LogWarning($"[Workout] ✗ '{rightArmBoneName}' не найдена!");
+
+            if (_leftBone != null) { _leftRestRot = _leftBone.localRotation; Debug.Log($"[Workout] ✓ Левая кость:  {_leftBone.name}"); }
+            else Debug.LogWarning($"[Workout] ✗ '{leftArmBoneName}' не найдена!");
+
+            // Предплечья (куда крепим гантели)
+            _rightForearm = FindByName(transform, rightForearmName);
+            _leftForearm  = FindByName(transform, leftForearmName);
+
+            if (_rightForearm == null && _rightBone != null && _rightBone.childCount > 0)
+                _rightForearm = _rightBone.GetChild(0);
+            if (_leftForearm == null && _leftBone != null && _leftBone.childCount > 0)
+                _leftForearm = _leftBone.GetChild(0);
+
+            Debug.Log($"[Workout] Правое предплечье: {_rightForearm?.name ?? "✗"}");
+            Debug.Log($"[Workout] Левое предплечье:  {_leftForearm?.name ?? "✗"}");
+
+            // Найти гантели
+            Transform[] allDumbbells = FindAllInSceneContaining(dumbbellSearchName);
+            Debug.Log($"[Workout] Найдено гантелей: {allDumbbells.Length}");
+
+            if (allDumbbells.Length > 0)
             {
-                _rightRestRot = _rightBone.localRotation;
-                _rightWrist   = _rightBone.childCount > 0 ? _rightBone.GetChild(0) : _rightBone;
-                Debug.Log($"[DumbbellWorkout] ✓ Правая: {_rightBone.name}  → wrist: {_rightWrist.name}");
+                _rightDumbbell = allDumbbells[0];
+                // Сохраняем исходное положение
+                _rightOrigParent = _rightDumbbell.parent;
+                _rightOrigPos    = _rightDumbbell.position;
+                _rightOrigRot    = _rightDumbbell.rotation;
+                _rightOrigScale  = _rightDumbbell.localScale;
+                Debug.Log($"[Workout] ✓ Правая гантель: {_rightDumbbell.name}");
             }
-            else Debug.LogWarning($"[DumbbellWorkout] ✗ Кость '{rightArmBoneName}' не найдена!");
-
-            if (_leftBone != null)
+            if (allDumbbells.Length > 1)
             {
-                _leftRestRot = _leftBone.localRotation;
-                _leftWrist   = _leftBone.childCount > 0 ? _leftBone.GetChild(0) : _leftBone;
-                Debug.Log($"[DumbbellWorkout] ✓ Левая:  {_leftBone.name}  → wrist: {_leftWrist.name}");
+                _leftDumbbell = allDumbbells[1];
+                _leftOrigParent = _leftDumbbell.parent;
+                _leftOrigPos    = _leftDumbbell.position;
+                _leftOrigRot    = _leftDumbbell.rotation;
+                _leftOrigScale  = _leftDumbbell.localScale;
+                Debug.Log($"[Workout] ✓ Левая гантель:  {_leftDumbbell.name}");
             }
-            else Debug.LogWarning($"[DumbbellWorkout] ✗ Кость '{leftArmBoneName}' не найдена!");
 
-            _restCached = true;
+            _bonesReady = true;
         }
 
-        // ── Update ─────────────────────────────────────────────
+        // ── Update ────────────────────────────────────────────
         private void Update()
         {
             Keyboard kb = Keyboard.current;
-            if (kb == null) return;
+            if (kb == null || !_bonesReady) return;
 
-            if (!_isWorking) FindNearestDumbbell();
-
-            if (!_isWorking && _nearbyDumbbell != null && kb.eKey.wasPressedThisFrame)
-            { StartWorkout(); return; }
-
-            if (_isWorking)
+            // --- Не тренируемся: проверяем близость ---
+            if (!_isWorking)
             {
-                if (kb.eKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame)
-                { StopWorkout(); return; }
+                CheckNearDumbbells();
 
-                Mouse mouse = Mouse.current;
-                if (mouse != null && mouse.leftButton.wasPressedThisFrame) OnClickPump();
-                if (kb.spaceKey.wasPressedThisFrame) OnClickPump();
+                // E рядом с гантелями → подобрать и начать
+                if (_nearDumbbells && kb.eKey.wasPressedThisFrame)
+                    PickUpAndStart();
 
-                // Decay
-                Dumbbell db = _currentDumbbellR ?? _currentDumbbellL;
-                if (db != null && _currentClicks > 0 && Time.time - _lastClickTime > db.DecayDelay)
-                {
-                    _currentClicks = Mathf.Max(0, _currentClicks - Mathf.CeilToInt(db.DecayRate * Time.deltaTime));
-                    workoutUI?.UpdateProgress(_currentClicks, db.ClicksPerSet);
-                }
+                return;
             }
 
+            // --- Тренируемся ---
+            // X → положить гантели
+            if (kb.xKey.wasPressedThisFrame)
+            {
+                PutDownAndStop();
+                return;
+            }
+
+            // Esc → тоже положить
+            if (kb.escapeKey.wasPressedThisFrame)
+            {
+                PutDownAndStop();
+                return;
+            }
+
+            // Клики
+            Mouse mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame) OnClickPump();
+            if (kb.spaceKey.wasPressedThisFrame)                       OnClickPump();
+
+            // Decay
+            if (_currentClicks > 0 && Time.time - _lastClickTime > decayDelay)
+            {
+                _currentClicks = Mathf.Max(0, _currentClicks - Mathf.CeilToInt(decayRate * Time.deltaTime));
+                workoutUI?.UpdateProgress(_currentClicks, clicksPerSet);
+            }
+
+            // Плавный blend
             _rightT = Mathf.MoveTowards(_rightT, _rightTarget, Time.deltaTime * curlSpeed);
             _leftT  = Mathf.MoveTowards(_leftT,  _leftTarget,  Time.deltaTime * curlSpeed);
         }
 
-        // ── LateUpdate: поверх Animator ────────────────────────
+        // ── LateUpdate ───────────────────────────────────────
         private void LateUpdate()
         {
-            if (!_restCached) return;
-            if (!_isWorking && _rightT < 0.001f && _leftT < 0.001f) return;
+            if (!_bonesReady || !_isWorking) return;
+            if (_rightT < 0.001f && _leftT < 0.001f) return;
 
             if (_rightBone != null)
             {
-                // Правая рука: Z+ (наружу от тела вперёд)
                 Quaternion lifted = _rightRestRot * Quaternion.Euler(0f, 0f, curlAngle);
                 _rightBone.localRotation = Quaternion.Slerp(_rightRestRot, lifted, _rightT);
             }
-
             if (_leftBone != null)
             {
-                // Левая рука: угол инвертирован (зеркально правой)
                 Quaternion lifted = _leftRestRot * Quaternion.Euler(0f, 0f, -curlAngle);
                 _leftBone.localRotation = Quaternion.Slerp(_leftRestRot, lifted, _leftT);
             }
         }
 
-        // ── StartWorkout ───────────────────────────────────────
-        private void StartWorkout()
+        // ── Проверка близости к гантелям ──────────────────────
+        private void CheckNearDumbbells()
         {
+            bool wasNear = _nearDumbbells;
+            _nearDumbbells = false;
+
+            if (_rightDumbbell != null)
+            {
+                float dist = Vector3.Distance(transform.position, _rightDumbbell.position);
+                if (dist < detectRadius) _nearDumbbells = true;
+            }
+            if (!_nearDumbbells && _leftDumbbell != null)
+            {
+                float dist = Vector3.Distance(transform.position, _leftDumbbell.position);
+                if (dist < detectRadius) _nearDumbbells = true;
+            }
+
+            // Подсказки
+            if (_nearDumbbells && !wasNear)
+                workoutUI?.ShowHint("Нажми [E] чтобы взять гантели!");
+            else if (!_nearDumbbells && wasNear)
+                workoutUI?.HideHint();
+        }
+
+        // ── Подобрать + начать ────────────────────────────────
+        private void PickUpAndStart()
+        {
+            // Прикрепить гантели к предплечьям
+            if (_rightDumbbell != null && _rightForearm != null)
+            {
+                _rightDumbbell.SetParent(_rightForearm);
+                _rightDumbbell.localPosition = new Vector3(-0.00196f, 0.00917f, 0.00298f);
+                _rightDumbbell.localRotation = Quaternion.Euler(16.395f, 81.053f, 91.449f);
+                _rightDumbbell.localScale    = new Vector3(0.9953f, 0.6857f, 0.9953f);
+            }
+            if (_leftDumbbell != null && _leftForearm != null)
+            {
+                _leftDumbbell.SetParent(_leftForearm);
+                _leftDumbbell.localPosition = new Vector3(0.00195f, 0.00853f, 0.00322f);
+                _leftDumbbell.localRotation = Quaternion.Euler(33.769f, -80.619f, -78.745f);
+                _leftDumbbell.localScale    = new Vector3(0.9953f, 0.6857f, 0.9953f);
+            }
+
             _isWorking     = true;
             _currentClicks = 0;
             _clickCount    = 0;
             _lastClickTime = Time.time;
             _rightTarget   = _leftTarget = 0f;
+            _rightT        = _leftT = 0f;
 
             _player?.SetMovementLocked(true);
-            if (_anim != null && _hasWorkoutParam) _anim.SetBool("isWorkout", true);
-
-            // Гантели к рукам
-            if (_allDumbbells.Length > 0 && _rightWrist != null)
-            {
-                _allDumbbells[0].AttachTo(_rightWrist);
-                _currentDumbbellR = _allDumbbells[0];
-                Debug.Log($"[DumbbellWorkout] 🏋 Правая ← {_allDumbbells[0].name}");
-            }
-            if (_allDumbbells.Length > 1 && _leftWrist != null)
-            {
-                _allDumbbells[1].AttachTo(_leftWrist);
-                _currentDumbbellL = _allDumbbells[1];
-                Debug.Log($"[DumbbellWorkout] 🏋 Левая  ← {_allDumbbells[1].name}");
-            }
-
-            Dumbbell db = _currentDumbbellR ?? _currentDumbbellL;
             workoutUI?.HideHint();
             workoutUI?.ShowWorkout();
-            workoutUI?.UpdateProgress(0, db?.ClicksPerSet ?? 15);
+            workoutUI?.UpdateProgress(0, clicksPerSet);
+            Debug.Log("[Workout] 🏋 Гантели в руках! ЛКМ/Пробел = качай, X = положить");
         }
 
-        // ── StopWorkout ────────────────────────────────────────
-        private void StopWorkout()
+        // ── Положить + остановить ─────────────────────────────
+        private void PutDownAndStop()
         {
+            // Вернуть руки в покой
             _rightTarget = _leftTarget = 0f;
+            _rightT = _leftT = 0f;
 
-            _currentDumbbellR?.ReturnToOriginal();
-            _currentDumbbellL?.ReturnToOriginal();
-            _currentDumbbellR = _currentDumbbellL = null;
+            // Вернуть гантели на место
+            if (_rightDumbbell != null)
+            {
+                _rightDumbbell.SetParent(_rightOrigParent);
+                _rightDumbbell.position   = _rightOrigPos;
+                _rightDumbbell.rotation   = _rightOrigRot;
+                _rightDumbbell.localScale = _rightOrigScale;
+            }
+            if (_leftDumbbell != null)
+            {
+                _leftDumbbell.SetParent(_leftOrigParent);
+                _leftDumbbell.position   = _leftOrigPos;
+                _leftDumbbell.rotation   = _leftOrigRot;
+                _leftDumbbell.localScale = _leftOrigScale;
+            }
 
-            _isWorking = false; _currentClicks = 0; _clickCount = 0;
+            _isWorking     = false;
+            _currentClicks = 0;
+            _clickCount    = 0;
+
             _player?.SetMovementLocked(false);
-            if (_anim != null && _hasWorkoutParam) _anim.SetBool("isWorkout", false);
             workoutUI?.HideWorkout();
+            Debug.Log("[Workout] Гантели положены на место");
         }
 
-        // ── Click ──────────────────────────────────────────────
+        // ── Клик ──────────────────────────────────────────────
         private void OnClickPump()
         {
-            Dumbbell db = _currentDumbbellR ?? _currentDumbbellL;
-            if (!_isWorking || db == null) return;
-
-            _currentClicks++;
-            _clickCount++;
-            _lastClickTime = Time.time;
+            if (!_isWorking) return;
+            _currentClicks++; _clickCount++; _lastClickTime = Time.time;
 
             bool useRight = (_clickCount % 2 == 1);
-            if (useRight) { _rightTarget = 1f; StartCoroutine(Lower(true));  }
-            else          { _leftTarget  = 1f; StartCoroutine(Lower(false)); }
+            if (useRight) { _rightTarget = 1f; StartCoroutine(LowerAfter(true));  }
+            else          { _leftTarget  = 1f; StartCoroutine(LowerAfter(false)); }
 
-            Debug.Log($"[DumbbellWorkout] {(useRight ? "▶ Правая" : "◀ Левая")} {_currentClicks}/{db.ClicksPerSet}");
+            Debug.Log($"[Workout] {(useRight ? "▶ П" : "◀ Л")} {_currentClicks}/{clicksPerSet}");
 
-            if (_currentClicks >= db.ClicksPerSet)
+            if (_currentClicks >= clicksPerSet)
             {
-                int gain = db.MusclePerSet;
-                workoutUI?.AddMuscle(gain);
-                workoutUI?.ShowSetComplete(gain);
-                workoutUI?.UpdateProgress(db.ClicksPerSet, db.ClicksPerSet);
+                _totalMuscle += musclePerSet;
+                workoutUI?.AddMuscle(musclePerSet);
+                workoutUI?.ShowSetComplete(musclePerSet);
+                workoutUI?.UpdateProgress(clicksPerSet, clicksPerSet);
                 _currentClicks = 0; _clickCount = 0;
                 Invoke(nameof(ResetUI), 1.2f);
-                Debug.Log($"[DumbbellWorkout] 💪 ПОДХОД! +{gain} мышцы");
+                Debug.Log($"[Workout] 💪 +{musclePerSet} Всего: {_totalMuscle}");
             }
-            else workoutUI?.UpdateProgress(_currentClicks, db.ClicksPerSet);
+            else workoutUI?.UpdateProgress(_currentClicks, clicksPerSet);
         }
 
-        private IEnumerator Lower(bool isRight)
+        private IEnumerator LowerAfter(bool r)
         {
             yield return new WaitForSeconds(holdTime);
-            if (isRight) _rightTarget = 0f; else _leftTarget = 0f;
+            if (r) _rightTarget = 0f; else _leftTarget = 0f;
         }
 
-        private void ResetUI()
-        {
-            Dumbbell db = _currentDumbbellR ?? _currentDumbbellL;
-            if (db != null) workoutUI?.UpdateProgress(_currentClicks, db.ClicksPerSet);
-        }
-
-        // ── Поиск ─────────────────────────────────────────────
-        private void FindNearestDumbbell()
-        {
-            if (_allDumbbells == null || _allDumbbells.Length == 0)
-                _allDumbbells = FindObjectsByType<Dumbbell>(FindObjectsSortMode.None);
-
-            Dumbbell closest = null; float best = detectRadius;
-            foreach (Dumbbell db in _allDumbbells)
-            {
-                if (db == null) continue;
-                float d = Vector3.Distance(transform.position, db.transform.position);
-                if (d < best) { best = d; closest = db; }
-            }
-
-            if (closest != null && _nearbyDumbbell == null)
-            { _nearbyDumbbell = closest; workoutUI?.ShowHint("Нажми [E] чтобы качаться!"); }
-            else if (closest != null) _nearbyDumbbell = closest;
-            else if (closest == null && _nearbyDumbbell != null)
-            { _nearbyDumbbell = null; workoutUI?.HideHint(); }
-        }
-
-        private void OnTriggerEnter(Collider other)
-        {
-            if (_isWorking) return;
-            var db = other.GetComponent<Dumbbell>() ?? other.GetComponentInParent<Dumbbell>();
-            if (db != null) { _nearbyDumbbell = db; workoutUI?.ShowHint("Нажми [E] чтобы качаться!"); }
-        }
-        private void OnTriggerExit(Collider other)
-        {
-            var db = other.GetComponent<Dumbbell>() ?? other.GetComponentInParent<Dumbbell>();
-            if (db != null && db == _nearbyDumbbell) { _nearbyDumbbell = null; workoutUI?.HideHint(); }
-        }
+        private void ResetUI() => workoutUI?.UpdateProgress(_currentClicks, clicksPerSet);
 
         // ── Утилиты ───────────────────────────────────────────
-        private static Transform FindBoneByName(Transform root, string name)
+        private static Transform FindByName(Transform root, string name)
         {
             if (root.name == name) return root;
             for (int i = 0; i < root.childCount; i++)
             {
-                var f = FindBoneByName(root.GetChild(i), name);
+                var f = FindByName(root.GetChild(i), name);
                 if (f != null) return f;
             }
             return null;
         }
 
-        private void OnDrawGizmosSelected()
+        private static Transform[] FindAllInSceneContaining(string substring)
         {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(transform.position, detectRadius);
+            var result = new List<Transform>();
+            foreach (var root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+                FindContaining(root.transform, substring, result);
+            return result.ToArray();
+        }
+
+        private static void FindContaining(Transform t, string sub, List<Transform> list)
+        {
+            if (t.name.Contains(sub))
+                list.Add(t);
+            for (int i = 0; i < t.childCount; i++)
+                FindContaining(t.GetChild(i), sub, list);
         }
     }
 }
