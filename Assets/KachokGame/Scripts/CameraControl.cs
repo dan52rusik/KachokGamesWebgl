@@ -6,6 +6,7 @@ namespace Tutorial
     {
         [SerializeField] private float speed = 8f;
         [SerializeField] private Vector3 offset = new Vector3(0f, 10f, -8f);
+        [SerializeField] private float lookHeight = 1.5f;
 
         private Transform _target;
 
@@ -28,9 +29,12 @@ namespace Tutorial
             if (_target == null)
                 return;
 
-            Vector3 newPos = _target.position + offset;
+            Quaternion targetRotation = Quaternion.Euler(0f, _target.eulerAngles.y, 0f);
+            Vector3 rotatedOffset = targetRotation * offset;
+            Vector3 newPos = _target.position + rotatedOffset;
+
             transform.position = Vector3.Lerp(transform.position, newPos, speed * Time.deltaTime);
-            transform.LookAt(_target.position + Vector3.up * 1.5f);
+            transform.LookAt(_target.position + Vector3.up * lookHeight);
         }
     }
 }
