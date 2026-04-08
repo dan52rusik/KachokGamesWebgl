@@ -28,6 +28,13 @@ namespace Tutorial
         [SerializeField] private float curlSpeed = 6f;
         [SerializeField] private float holdTime = 0.3f;
 
+        [Header("Arm Pump")]
+        [SerializeField] private float upperArmPumpScale = 0.38f;
+        [SerializeField] private float forearmPumpScale = 0.20f;
+        [SerializeField] private float armPumpLerpSpeed = 8f;
+        [SerializeField] private float stageUpperArmScale = 0.22f;
+        [SerializeField] private float stageForearmScale = 0.12f;
+
         [Header("Tempo")]
         [SerializeField] private float clickSpeedWindow = 1.2f;
         [SerializeField] private float speedToMultiplier = 1.25f;
@@ -50,8 +57,12 @@ namespace Tutorial
         private Transform _leftBone;
         private Quaternion _rightRestRot;
         private Quaternion _leftRestRot;
+        private Vector3 _rightRestScale;
+        private Vector3 _leftRestScale;
         private Transform _rightForearm;
         private Transform _leftForearm;
+        private Vector3 _rightForearmRestScale;
+        private Vector3 _leftForearmRestScale;
         private bool _bonesReady;
 
         private Transform _rightDb;
@@ -122,6 +133,7 @@ namespace Tutorial
             if (_rightBone != null)
             {
                 _rightRestRot = _rightBone.localRotation;
+                _rightRestScale = _rightBone.localScale;
                 Debug.Log($"[DW] ✓ Правая кость: {_rightBone.name}");
             }
             else
@@ -132,6 +144,7 @@ namespace Tutorial
             if (_leftBone != null)
             {
                 _leftRestRot = _leftBone.localRotation;
+                _leftRestScale = _leftBone.localScale;
                 Debug.Log($"[DW] ✓ Левая кость: {_leftBone.name}");
             }
             else
@@ -151,6 +164,11 @@ namespace Tutorial
                 _rightForearm = _rightBone.GetChild(0);
             if (_leftForearm == null && _leftBone != null && _leftBone.childCount > 0)
                 _leftForearm = _leftBone.GetChild(0);
+
+            if (_rightForearm != null)
+                _rightForearmRestScale = _rightForearm.localScale;
+            if (_leftForearm != null)
+                _leftForearmRestScale = _leftForearm.localScale;
 
             AssignDumbbells();
             CacheDumbbellState();
@@ -189,7 +207,12 @@ namespace Tutorial
 
         private void LateUpdate()
         {
-            if (!_bonesReady || !_isWorking)
+            if (!_bonesReady)
+                return;
+
+            UpdateArmPump();
+
+            if (!_isWorking)
                 return;
             if (_rightT < 0.001f && _leftT < 0.001f)
                 return;
@@ -205,6 +228,60 @@ namespace Tutorial
                 Quaternion lifted = _leftRestRot * Quaternion.Euler(0f, 0f, -curlAngle);
                 _leftBone.localRotation = Quaternion.Slerp(_leftRestRot, lifted, _leftT);
             }
+        }
+
+        private void UpdateArmPump()
+        {
+            float sessionRatio = 0f;
+            float tempoRatio = 0f;
+            float stageRatio = 0f;
+
+            if (_isWorking && _session != null && _session.ClicksPerSet > 0)
+                sessionRatio = (float)_session.CurrentClicks / _session.ClicksPerSet;
+
+            if (_isWorking)
+                tempoRatio = Mathf.InverseLerp(1f, maxTempoMultiplier, _currentTempoMultiplier);
+
+            if (BodyMorphSystem.Instance != null && BodyMorphSystem.Instance.StageCount > 1)
+                stageRatio = (float)BodyMorphSystem.Instance.CurrentStageIndex / (BodyMorphSystem.Instance.StageCount - 1);
+
+            float stageBaseUpper = 1f + stageUpperArmScale * stageRatio;
+            float stageBaseForearm = 1f + stageForearmScale * stageRatio;
+
+            float pumpAmount = _isWorking
+                ? Mathf.Clamp01(sessionRatio * 0.55f + tempoRatio * 0.30f + stageRatio * 0.15f)
+                : 0f;
+
+            float pulse = _isWorking ? Mathf.Lerp(0.92f, 1.08f, Mathf.PingPong(Time.time * 4.5f, 1f)) : 1f;
+            float upperPump = stageBaseUpper + upperArmPumpScale * pumpAmount * pulse;
+            float forearmPump = stageBaseForearm + forearmPumpScale * pumpAmount * Mathf.Lerp(0.96f, 1.04f, Mathf.PingPong(Time.time * 5.4f, 1f));
+
+            if (_rightBone != null)
+                _rightBone.localScale = Vector3.Lerp(
+                    _rightBone.localScale,
+                    ScaleAroundRest(_rightRestScale, upperPump),
+                    armPumpLerpSpeed * Time.deltaTime);
+            if (_leftBone != null)
+                _leftBone.localScale = Vector3.Lerp(
+                    _leftBone.localScale,
+                    ScaleAroundRest(_leftRestScale, upperPump),
+                    armPumpLerpSpeed * Time.deltaTime);
+
+            if (_rightForearm != null)
+                _rightForearm.localScale = Vector3.Lerp(
+                    _rightForearm.localScale,
+                    ScaleAroundRest(_rightForearmRestScale, forearmPump),
+                    armPumpLerpSpeed * Time.deltaTime);
+            if (_leftForearm != null)
+                _leftForearm.localScale = Vector3.Lerp(
+                    _leftForearm.localScale,
+                    ScaleAroundRest(_leftForearmRestScale, forearmPump),
+                    armPumpLerpSpeed * Time.deltaTime);
+        }
+
+        private static Vector3 ScaleAroundRest(Vector3 rest, float multiplier)
+        {
+            return new Vector3(rest.x * multiplier, rest.y * multiplier, rest.z * multiplier);
         }
 
         private void CheckNearDumbbells()
