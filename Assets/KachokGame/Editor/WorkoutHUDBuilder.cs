@@ -66,8 +66,8 @@ namespace Tutorial.Editor
             screenOverlayImage.color = Color.clear;
             screenOverlayImage.raycastTarget = false;
 
-            var hint = Card(root, "HintPanel", Blue, new Vector2(560f, 82f));
-            SetAnchorBottom(hint, 30f, new Vector2(560f, 82f));
+            var hint = Card(canvasGO, "HintPanel", Blue, new Vector2(560f, 82f));
+            SetAnchorBottom(hint, 190f, new Vector2(560f, 82f));
             var hintText = Label(hint, "HintText", "PRESS [E] TO START WORKOUT", 26, Ink);
             Stretch(hintText.gameObject);
 
@@ -149,7 +149,7 @@ namespace Tutorial.Editor
             var (fatigueBar, fatigueFill) = Bar(fatigueCard, "FatigueBar", Red, 0.07f, 0.12f, 0.93f, 0.28f);
 
             var clickButton = ButtonCard(workoutPanel, "ClickButton", "TRAIN", Gold, Ink, new Vector2(500f, 132f));
-            SetAnchorBottom(clickButton.gameObject, 38f, new Vector2(500f, 132f));
+            SetAnchorBottom(clickButton.gameObject, 36f, new Vector2(500f, 132f));
             var clickButtonFill = clickButton.transform.Find("Fill").GetComponent<Image>();
 
             var clickCaption = Label(clickButton.gameObject, "ClickCaption", "TAP FAST TO BUILD MUSCLE", 20, Ink);
