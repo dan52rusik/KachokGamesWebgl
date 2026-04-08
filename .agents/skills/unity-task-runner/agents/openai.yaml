@@ -1,0 +1,4 @@
+agent:
+  display_name: "Unity Task Runner"
+  short_description: "Implement and verify concrete Unity tasks"
+  default_prompt: "Use $unity-task-runner to implement and verify a concrete Unity task in this workspace."

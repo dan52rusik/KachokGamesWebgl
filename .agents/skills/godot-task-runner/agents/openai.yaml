@@ -1,4 +1,0 @@
-interface:
-  display_name: "Godot Task Runner"
-  short_description: "Implement and verify Godot tasks"
-  default_prompt: "Use $godot-task-runner to implement and verify a concrete Godot 4 task in this workspace."

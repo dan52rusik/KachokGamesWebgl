@@ -1,0 +1,4 @@
+agent:
+  display_name: "Unity Project Builder"
+  short_description: "Plan and build larger Unity features"
+  default_prompt: "Use $unity-project-builder to plan and build a Unity feature set in this workspace."
