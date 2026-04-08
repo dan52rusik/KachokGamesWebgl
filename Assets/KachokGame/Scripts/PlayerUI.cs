@@ -11,8 +11,8 @@ namespace Tutorial
 
         [Header("Roblox Style")]
         [SerializeField] private bool applyRobloxStyle = true;
-        [SerializeField] private Color cardColor = new Color32(255, 210, 40, 245);
-        [SerializeField] private Color cardTextColor = new Color32(28, 20, 10, 255);
+        [SerializeField] private Color cardColor = new Color32(255, 196, 39, 250);
+        [SerializeField] private Color cardTextColor = new Color32(24, 18, 10, 255);
         [SerializeField] private Color cardShadowColor = new Color32(0, 0, 0, 160);
 
         private int _treeCount;
@@ -60,13 +60,14 @@ namespace Tutorial
             rect.anchorMax = new Vector2(0f, 1f);
             rect.pivot = new Vector2(0f, 1f);
             rect.anchoredPosition = new Vector2(24f, -18f);
-            rect.sizeDelta = new Vector2(220f, 42f);
+            rect.sizeDelta = new Vector2(240f, 56f);
 
-            treeCountText.fontSize = 24f;
+            treeCountText.fontSize = 28f;
             treeCountText.fontStyle = FontStyles.Bold;
             treeCountText.color = cardTextColor;
             treeCountText.alignment = TextAlignmentOptions.Left;
-            treeCountText.enableWordWrapping = false;
+            treeCountText.textWrappingMode = TextWrappingModes.NoWrap;
+            treeCountText.margin = new Vector4(18f, 10f, 18f, 10f);
 
             Image image = EnsureBackground(treeCountText.gameObject);
             image.color = cardColor;
@@ -94,8 +95,8 @@ namespace Tutorial
                 rect.anchorMin = new Vector2(0f, 1f);
                 rect.anchorMax = new Vector2(0f, 1f);
                 rect.pivot = new Vector2(0f, 1f);
-                rect.anchoredPosition = new Vector2(24f + i * 48f, -68f);
-                rect.sizeDelta = new Vector2(38f, 38f);
+                rect.anchoredPosition = new Vector2(24f + i * 54f, -86f);
+                rect.sizeDelta = new Vector2(44f, 44f);
 
                 Image image = hearts[i].GetComponent<Image>();
                 if (image != null)

@@ -9,21 +9,25 @@ namespace Tutorial.Editor
 {
     public static class WorkoutHUDBuilder
     {
-        static readonly Color Black = new Color(0.05f, 0.05f, 0.07f, 0.96f);
-        static readonly Color White = Color.white;
-        static readonly Color Yellow = new Color(1f, 0.82f, 0.08f, 1f);
-        static readonly Color Blue = new Color(0.10f, 0.58f, 0.92f, 1f);
-        static readonly Color Red = new Color(1f, 0.12f, 0.12f, 1f);
-        static readonly Color Gray = new Color(0.40f, 0.40f, 0.45f, 1f);
-        static readonly Color DarkGray = new Color(0.15f, 0.15f, 0.18f, 0.96f);
-        static readonly Color Shadow = new Color(0f, 0f, 0f, 0.4f);
+        static readonly Color Ink = new(0.07f, 0.07f, 0.09f, 0.98f);
+        static readonly Color SoftBlack = new(0.11f, 0.11f, 0.14f, 0.94f);
+        static readonly Color White = new(1f, 0.98f, 0.95f, 1f);
+        static readonly Color Gold = new(1f, 0.79f, 0.16f, 1f);
+        static readonly Color GoldDark = new(0.92f, 0.57f, 0.10f, 1f);
+        static readonly Color Lime = new(0.50f, 1f, 0.33f, 1f);
+        static readonly Color Red = new(1f, 0.28f, 0.25f, 1f);
+        static readonly Color Blue = new(0.22f, 0.69f, 1f, 1f);
+        static readonly Color Gray = new(0.43f, 0.43f, 0.48f, 1f);
+        static readonly Color Shadow = new(0f, 0f, 0f, 0.35f);
 
-        [MenuItem("KachokGame/Build Roblox HUD (v2)")]
+        [MenuItem("KachokGame/Build Muscle Transform HUD")]
         [MenuItem("KachokGame/Build WorkoutHUD Canvas (Cartoon)")]
+        [MenuItem("KachokGame/Build Roblox HUD (v2)")]
         public static void Build()
         {
             var old = GameObject.Find("WorkoutHUD_Canvas");
-            if (old != null) Undo.DestroyObjectImmediate(old);
+            if (old != null)
+                Undo.DestroyObjectImmediate(old);
 
             foreach (var legacy in Object.FindObjectsByType<StandaloneInputModule>(FindObjectsSortMode.None))
                 Undo.DestroyObjectImmediate(legacy);
@@ -53,192 +57,391 @@ namespace Tutorial.Editor
             canvasGO.AddComponent<GraphicRaycaster>();
 
             var hud = canvasGO.AddComponent<WorkoutHUD>();
-            var root = Child(canvasGO, "RootPanel"); Stretch(root);
+            var root = Child(canvasGO, "RootPanel");
+            Stretch(root);
 
-            // Hint
-            var hint = Panel(canvasGO, "HintPanel", Blue, new Vector2(460f, 64f));
-            SetAnchorBottom(hint, 280f, new Vector2(460f, 64f));
-            var hintText = Label(hint, "HintText", "Нажми E, чтобы взять", 24, White); Stretch(hintText.gameObject);
+            var screenOverlay = Child(root, "ScreenOverlay");
+            Stretch(screenOverlay);
+            var screenOverlayImage = screenOverlay.AddComponent<Image>();
+            screenOverlayImage.color = Color.clear;
+            screenOverlayImage.raycastTarget = false;
 
-            // Muscle Card
-            var muscleCard = Panel(root, "MuscleCard", Yellow, new Vector2(240f, 76f));
-            SetTopLeft(muscleCard, 28f, 28f);
-            var muscleValue = Label(muscleCard, "MuscleValueText", "0/100", 26, Black);
-            Anchor(muscleValue.gameObject, 0.08f, 0.4f, 0.92f, 0.95f); muscleValue.alignment = TextAlignmentOptions.MidlineLeft;
-            var muscleSub = Label(muscleCard, "MuscleSubText", "мышца · стадия 1", 14, Black);
-            Anchor(muscleSub.gameObject, 0.08f, 0.05f, 0.92f, 0.45f); muscleSub.alignment = TextAlignmentOptions.MidlineLeft;
+            var hint = Card(root, "HintPanel", Blue, new Vector2(560f, 82f));
+            SetAnchorBottom(hint, 30f, new Vector2(560f, 82f));
+            var hintText = Label(hint, "HintText", "PRESS [E] TO START WORKOUT", 26, Ink);
+            Stretch(hintText.gameObject);
 
-            // Stamina Card
-            var staminaCard = Panel(root, "StaminaCard", Blue, new Vector2(240f, 76f));
-            SetTopRight(staminaCard, 28f, 28f);
-            var staminaPercent = Label(staminaCard, "StaminaPercent", "100%", 26, White);
-            Anchor(staminaPercent.gameObject, 0.55f, 0.35f, 0.92f, 0.90f); staminaPercent.alignment = TextAlignmentOptions.MidlineRight;
-            var staminaLabel = Label(staminaCard, "StaminaLabel", "СИЛЫ", 18, White);
-            Anchor(staminaLabel.gameObject, 0.08f, 0.45f, 0.55f, 0.90f); staminaLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            var (staminaBar, staminaFill) = Bar(staminaCard, "StaminaBar", Blue, 0.08f, 0.15f, 0.92f, 0.30f);
+            var workoutPanel = Child(root, "WorkoutPanel");
+            Stretch(workoutPanel);
 
-            // Tabs
-            var tabs = Child(root, "TabBar");
-            SetAnchorTop(tabs, -40f, new Vector2(400f, 54f));
-            var tabsLayout = tabs.AddComponent<HorizontalLayoutGroup>();
-            tabsLayout.spacing = 14f; tabsLayout.childAlignment = TextAnchor.MiddleCenter;
-            tabsLayout.childControlHeight = true; tabsLayout.childControlWidth = true;
-            var tabWorkout = FlatButton(tabs, "TabWorkout", "ТРЕН", Yellow, Black, new Vector2(130f, 54f));
-            var tabRest = FlatButton(tabs, "TabRest", "ОТДЫХ", Black, White, new Vector2(130f, 54f));
-            var tabResults = FlatButton(tabs, "TabResults", "ИТОГ", Black, White, new Vector2(130f, 54f));
+            var topLeft = Child(workoutPanel, "TopLeftCluster");
+            SetTopLeft(topLeft, 24f, 24f);
+            topLeft.GetComponent<RectTransform>().sizeDelta = new Vector2(360f, 240f);
+            topLeft.AddComponent<VerticalLayoutGroup>().spacing = 16f;
 
-            // Workout Panel
-            var workoutPanel = Child(root, "WorkoutPanel"); Stretch(workoutPanel);
+            var muscleCard = Card(topLeft, "MuscleCard", Gold, new Vector2(360f, 110f));
+            AddLayout(muscleCard, 360f, 110f);
+            var muscleTitle = Label(muscleCard, "MuscleTitle", "MUSCLE", 22, Ink);
+            Anchor(muscleTitle.gameObject, 0.07f, 0.62f, 0.45f, 0.92f);
+            muscleTitle.alignment = TextAlignmentOptions.MidlineLeft;
+            var muscleValue = Label(muscleCard, "MuscleValueText", "0/100", 40, Ink);
+            Anchor(muscleValue.gameObject, 0.07f, 0.22f, 0.68f, 0.72f);
+            muscleValue.alignment = TextAlignmentOptions.MidlineLeft;
+            var muscleSub = Label(muscleCard, "MuscleSubText", "stage 1 of 5", 18, Ink);
+            Anchor(muscleSub.gameObject, 0.07f, 0.05f, 0.90f, 0.28f);
+            muscleSub.alignment = TextAlignmentOptions.MidlineLeft;
+            var phaseBadge = Card(muscleCard, "PhaseBadgeBG", SoftBlack, new Vector2(118f, 40f));
+            SetTopRight(phaseBadge, 18f, 18f);
+            var phaseText = Label(phaseBadge, "PhaseBadgeText", "WARMUP", 16, White);
+            Stretch(phaseText.gameObject);
 
-            var multiplierText = Label(workoutPanel, "MultiplierText", "x1.0", 82, Yellow);
-            SetAnchorCenter(multiplierText.gameObject, new Vector2(300f, 80f), new Vector2(260f, 100f));
+            var staminaCard = Card(topLeft, "StaminaCard", Blue, new Vector2(360f, 110f));
+            AddLayout(staminaCard, 360f, 110f);
+            var staminaTitle = Label(staminaCard, "StaminaTitle", "ENERGY", 22, White);
+            Anchor(staminaTitle.gameObject, 0.07f, 0.62f, 0.45f, 0.92f);
+            staminaTitle.alignment = TextAlignmentOptions.MidlineLeft;
+            var staminaPercent = Label(staminaCard, "StaminaPercent", "100%", 40, White);
+            Anchor(staminaPercent.gameObject, 0.60f, 0.22f, 0.92f, 0.78f);
+            staminaPercent.alignment = TextAlignmentOptions.MidlineRight;
+            var (staminaBar, staminaFill) = Bar(staminaCard, "StaminaBar", Lime, 0.07f, 0.12f, 0.92f, 0.28f);
+
+            var centerTop = Child(workoutPanel, "CenterTopCluster");
+            SetAnchorTop(centerTop, -28f, new Vector2(420f, 130f));
+
+            var multiplierCard = Card(centerTop, "MultiplierCard", Gold, new Vector2(320f, 110f));
+            SetAnchorCenter(multiplierCard, new Vector2(0f, 0f), new Vector2(320f, 110f));
+            var multiplierText = Label(multiplierCard, "MultiplierText", "x1.0", 76, Ink);
+            Anchor(multiplierText.gameObject, 0.08f, 0.18f, 0.92f, 0.90f);
             multiplierText.fontStyle = FontStyles.Bold;
+            var speedText = Label(multiplierCard, "TrainingSpeedText", "0.00 CLICKS / SEC", 18, Ink);
+            Anchor(speedText.gameObject, 0.08f, 0.03f, 0.92f, 0.28f);
 
-            var phaseBadge = Panel(workoutPanel, "PhaseBadgeBG", DarkGray, new Vector2(260f, 56f));
-            SetAnchorTop(phaseBadge, -120f, new Vector2(260f, 56f));
-            var phaseText = Label(phaseBadge, "PhaseBadgeText", "СТАРТ", 22, White); Stretch(phaseText.gameObject);
+            var rightTop = Child(workoutPanel, "RightTopCluster");
+            SetTopRight(rightTop, 24f, 24f);
+            rightTop.GetComponent<RectTransform>().sizeDelta = new Vector2(380f, 244f);
+            rightTop.AddComponent<VerticalLayoutGroup>().spacing = 16f;
 
-            var speedBadge = Panel(workoutPanel, "SpeedBadge", Blue, new Vector2(340f, 60f));
-            SetAnchorBottom(speedBadge, 370f, new Vector2(340f, 60f));
-            var speedText = Label(speedBadge, "TrainingSpeedText", "Training Speed: 0.00", 24, White); Stretch(speedText.gameObject);
+            var progressCard = Card(rightTop, "ProgressCard", SoftBlack, new Vector2(380f, 118f));
+            AddLayout(progressCard, 380f, 118f);
+            var setInfo = Label(progressCard, "SetInfoText", "SET 1 OF 5", 28, White);
+            Anchor(setInfo.gameObject, 0.07f, 0.54f, 0.93f, 0.88f);
+            setInfo.alignment = TextAlignmentOptions.MidlineLeft;
+            var setProgressText = Label(progressCard, "SetProgressText", "0/15", 24, Gold);
+            Anchor(setProgressText.gameObject, 0.70f, 0.56f, 0.93f, 0.85f);
+            setProgressText.alignment = TextAlignmentOptions.MidlineRight;
+            var (setProgressBar, setProgressFill) = Bar(progressCard, "SetProgressBar", Gold, 0.07f, 0.24f, 0.93f, 0.40f);
+            var dotsRow = Child(progressCard, "DotsRow");
+            Anchor(dotsRow, 0.07f, 0.03f, 0.93f, 0.18f);
+            var dotsLayout = dotsRow.AddComponent<HorizontalLayoutGroup>();
+            dotsLayout.spacing = 12f;
+            dotsLayout.childAlignment = TextAnchor.MiddleLeft;
+            dotsLayout.childForceExpandHeight = false;
+            dotsLayout.childForceExpandWidth = false;
 
-            // Main Card (BOTTOM)
-            var mainCard = Panel(workoutPanel, "MainCard", Black, new Vector2(1040f, 280f));
-            SetAnchorBottom(mainCard, 40f, new Vector2(1040f, 280f));
+            var fatigueCard = Card(rightTop, "FatigueCard", SoftBlack, new Vector2(380f, 110f));
+            AddLayout(fatigueCard, 380f, 110f);
+            var fatigueTitle = Label(fatigueCard, "FatigueTitle", "PUMP ZONE", 22, White);
+            Anchor(fatigueTitle.gameObject, 0.07f, 0.62f, 0.48f, 0.92f);
+            fatigueTitle.alignment = TextAlignmentOptions.MidlineLeft;
+            var fatiguePercent = Label(fatigueCard, "FatiguePercent", "0%", 38, Red);
+            Anchor(fatiguePercent.gameObject, 0.64f, 0.20f, 0.92f, 0.82f);
+            fatiguePercent.alignment = TextAlignmentOptions.MidlineRight;
+            var (fatigueBar, fatigueFill) = Bar(fatigueCard, "FatigueBar", Red, 0.07f, 0.12f, 0.93f, 0.28f);
 
-            var content = Child(mainCard, "Content"); Stretch(content);
-            var contentRt = content.GetComponent<RectTransform>();
-            contentRt.offsetMin = new Vector2(30f, 25f);
-            contentRt.offsetMax = new Vector2(-30f, -25f);
+            var clickButton = ButtonCard(workoutPanel, "ClickButton", "TRAIN", Gold, Ink, new Vector2(500f, 132f));
+            SetAnchorBottom(clickButton.gameObject, 38f, new Vector2(500f, 132f));
+            var clickButtonFill = clickButton.transform.Find("Fill").GetComponent<Image>();
 
-            var contentLayout = content.AddComponent<VerticalLayoutGroup>();
-            contentLayout.spacing = 16f;
-            contentLayout.childAlignment = TextAnchor.UpperCenter;
-            contentLayout.childControlHeight = true;
-            contentLayout.childControlWidth = true;
-            contentLayout.childForceExpandHeight = false;
-            contentLayout.childForceExpandWidth = true;
+            var clickCaption = Label(clickButton.gameObject, "ClickCaption", "TAP FAST TO BUILD MUSCLE", 20, Ink);
+            Anchor(clickCaption.gameObject, 0.08f, 0.12f, 0.92f, 0.30f);
 
-            var topRow = Row(content, "TopRow", 30f, 16f);
-            var dots = Child(topRow, "DotsRow"); 
-            AddLayout(dots, 200f, 20f);
-            var dotsLayout = dots.AddComponent<HorizontalLayoutGroup>();
-            dotsLayout.spacing = 14f; dotsLayout.childAlignment = TextAnchor.MiddleLeft;
-            dotsLayout.childControlHeight = true; dotsLayout.childControlWidth = true;
-            dotsLayout.childForceExpandHeight = true; dotsLayout.childForceExpandWidth = false;
+            var restPanel = Child(root, "RestPanel");
+            Stretch(restPanel);
+            restPanel.SetActive(false);
+            var restShade = screenOverlay.AddComponent<LayoutElement>();
+            restShade.ignoreLayout = true;
 
-            var fatigueLabel = Label(topRow, "FatigueLabel", "ТЕМП", 18, White); AddLayout(fatigueLabel.gameObject, 80f, 30f);
-            var fatigueTrack = Track(topRow, "FatigueBar", new Vector2(400f, 24f)); AddLayout(fatigueTrack, 400f, 24f);
-            var fatigueBar = fatigueTrack.GetComponent<Slider>();
-            var fatigueFill = fatigueTrack.transform.Find("FillArea/Fill").GetComponent<Image>(); fatigueFill.color = Gray;
-            var fatigueText = Label(topRow, "FatiguePercent", "0%", 18, White); AddLayout(fatigueText.gameObject, 70f, 30f);
+            var restCard = Card(restPanel, "RestCard", SoftBlack, new Vector2(620f, 280f));
+            SetAnchorCenter(restCard, Vector2.zero, new Vector2(620f, 280f));
+            var restHeader = Label(restCard, "RestHeaderText", "REST", 44, White);
+            Anchor(restHeader.gameObject, 0.08f, 0.70f, 0.92f, 0.92f);
+            var restMuscle = Label(restCard, "RestMuscleText", "+10 MUSCLE", 36, Gold);
+            Anchor(restMuscle.gameObject, 0.08f, 0.46f, 0.92f, 0.68f);
+            var (restTimerBar, _) = Bar(restCard, "RestTimerBar", Blue, 0.08f, 0.24f, 0.92f, 0.34f);
+            var restTimerText = Label(restCard, "RestTimerText", "8s", 28, White);
+            Anchor(restTimerText.gameObject, 0.08f, 0.08f, 0.92f, 0.22f);
 
-            var progressRow = Row(content, "ProgressRow", 46f, 16f);
-            var progressTrack = Track(progressRow, "SetProgressBar", new Vector2(800f, 42f)); AddLayout(progressTrack, 800f, 46f);
-            var setProgress = progressTrack.GetComponent<Slider>();
-            var setProgressFill = progressTrack.transform.Find("FillArea/Fill").GetComponent<Image>();
-            var setProgressText = Label(progressRow, "SetProgressText", "0/15", 22, White); AddLayout(setProgressText.gameObject, 100f, 46f);
+            var resultsPanel = Child(root, "ResultsPanel");
+            Stretch(resultsPanel);
+            resultsPanel.SetActive(false);
+            var resultsCard = Card(resultsPanel, "ResultsCard", Gold, new Vector2(700f, 420f));
+            SetAnchorCenter(resultsCard, Vector2.zero, new Vector2(700f, 420f));
+            var resultsTitle = Label(resultsCard, "ResultsTitleText", "WORKOUT COMPLETE", 42, Ink);
+            Anchor(resultsTitle.gameObject, 0.06f, 0.80f, 0.94f, 0.94f);
+            var resultsDay = Label(resultsCard, "ResultsDayText", "CHEST DAY", 28, Ink);
+            Anchor(resultsDay.gameObject, 0.06f, 0.62f, 0.94f, 0.76f);
+            var resultsSets = Label(resultsCard, "ResultsSetsText", "SETS: 5/5", 28, Ink);
+            Anchor(resultsSets.gameObject, 0.06f, 0.48f, 0.94f, 0.60f);
+            var resultsMuscle = Label(resultsCard, "ResultsMuscleText", "MUSCLE GAINED: +50", 30, Ink);
+            Anchor(resultsMuscle.gameObject, 0.06f, 0.32f, 0.94f, 0.46f);
+            var resultsRecord = Label(resultsCard, "ResultsRecordText", "NEW RECORD!", 34, Red);
+            Anchor(resultsRecord.gameObject, 0.06f, 0.18f, 0.94f, 0.30f);
+            var doneButton = ButtonCard(resultsCard, "DoneButton", "CLAIM", Ink, White, new Vector2(240f, 78f));
+            SetAnchorBottom(doneButton.gameObject, 26f, new Vector2(240f, 78f));
 
-            var setInfo = Label(content, "SetInfoText", "Подход 1 из 5 · Выпады", 26, White);
-            AddLayout(setInfo.gameObject, -1f, 32f); setInfo.alpha = 0.85f;
+            var tabWorkout = HiddenButton(root, "TabWorkout");
+            var tabRest = HiddenButton(root, "TabRest");
+            var tabResults = HiddenButton(root, "TabResults");
 
-            var buttonRow = Row(content, "ButtonRow", 84f, 24f);
-            var exitButton = FlatButton(buttonRow, "ExitButton", "EXIT", Red, White, new Vector2(240f, 84f)); AddLayout(exitButton.gameObject, 240f, 84f);
-            var autoButton = FlatButton(buttonRow, "ClickButton", "TRAIN", Yellow, Black, new Vector2(680f, 84f)); AddLayout(autoButton.gameObject, 680f, 84f);
-            var clickButtonBG = autoButton.transform.Find("Fill").GetComponent<Image>();
-
-            // Rest
-            var restPanel = Child(root, "RestPanel"); Stretch(restPanel); restPanel.SetActive(false);
-            var restCard = Panel(restPanel, "RestCard", Black, new Vector2(480f, 220f)); SetAnchorCenter(restCard, Vector2.zero, new Vector2(480f, 220f));
-            var restHeader = Label(restCard, "RestHeaderText", "ОТДЫХ", 32, White); Anchor(restHeader.gameObject, 0.05f, 0.65f, 0.95f, 0.95f);
-            var restMuscle = Label(restCard, "RestMuscleText", "+10 МЫШЦ", 34, Yellow); Anchor(restMuscle.gameObject, 0.05f, 0.35f, 0.95f, 0.65f);
-            var (restTimerBar, _) = Bar(restCard, "RestTimerBar", Blue, 0.08f, 0.16f, 0.92f, 0.28f);
-            var restTimerText = Label(restCard, "RestTimerText", "8с", 24, White); Anchor(restTimerText.gameObject, 0.05f, 0.00f, 0.95f, 0.16f);
-
-            // Results
-            var resultsPanel = Child(root, "ResultsPanel"); Stretch(resultsPanel); resultsPanel.SetActive(false);
-            var resultsCard = Panel(resultsPanel, "ResultsCard", Black, new Vector2(560f, 320f)); SetAnchorCenter(resultsCard, Vector2.zero, new Vector2(560f, 320f));
-            var resultsTitle = Label(resultsCard, "ResultsTitleText", "ГОТОВО!", 38, White); Anchor(resultsTitle.gameObject, 0.05f, 0.80f, 0.95f, 0.95f);
-            var resultsDay = Label(resultsCard, "ResultsDayText", "День X", 24, White); Anchor(resultsDay.gameObject, 0.05f, 0.60f, 0.95f, 0.78f);
-            var resultsSets = Label(resultsCard, "ResultsSetsText", "Подходы: X/X", 24, White); Anchor(resultsSets.gameObject, 0.05f, 0.44f, 0.95f, 0.60f);
-            var resultsMuscle = Label(resultsCard, "ResultsMuscleText", "+X Мышц", 26, Yellow); Anchor(resultsMuscle.gameObject, 0.05f, 0.24f, 0.95f, 0.44f);
-            var resultsRecord = Label(resultsCard, "ResultsRecordText", "НОВЫЙ РЕКОРД", 26, Red); Anchor(resultsRecord.gameObject, 0.05f, 0.10f, 0.95f, 0.24f);
-            var doneButton = FlatButton(resultsCard, "DoneButton", "OK", Blue, White, new Vector2(200f, 60f)); SetAnchorBottom(doneButton.gameObject, 25f, new Vector2(200f, 60f));
-
-            // Wiring
-            var so = new SerializedObject(hud); so.Update();
-            SetRef(so, "rootPanel", root); SetRef(so, "workoutPanel", workoutPanel); SetRef(so, "restPanel", restPanel); SetRef(so, "resultsPanel", resultsPanel); SetRef(so, "hintPanel", hint);
-            SetRef(so, "tabWorkout", tabWorkout); SetRef(so, "tabRest", tabRest); SetRef(so, "tabResults", tabResults);
-            SetRef(so, "muscleValueText", muscleValue); SetRef(so, "muscleSubText", muscleSub);
-            SetRef(so, "phaseBadgeText", phaseText); SetRef(so, "phaseBadgeBG", phaseBadge.transform.Find("Fill").GetComponent<Image>());
-            SetRef(so, "staminaBar", staminaBar); SetRef(so, "staminaFill", staminaFill); SetRef(so, "staminaPercent", staminaPercent);
-            SetRef(so, "setProgressBar", setProgress); SetRef(so, "setProgressFill", setProgressFill); SetRef(so, "setProgressText", setProgressText);
-            SetRef(so, "fatigueBar", fatigueBar); SetRef(so, "fatigueFill", fatigueFill); SetRef(so, "fatiguePercent", fatigueText);
-            SetRef(so, "clickButton", autoButton); SetRef(so, "clickButtonBG", clickButtonBG);
-            SetRef(so, "setDotsParent", dots.transform); SetRef(so, "setDotPrefab", DotPrefab());
-            SetRef(so, "setInfoText", setInfo); SetRef(so, "hintText", hintText);
-            SetRef(so, "multiplierText", multiplierText); SetRef(so, "trainingSpeedText", speedText);
-            SetRef(so, "restHeaderText", restHeader); SetRef(so, "restMuscleText", restMuscle); SetRef(so, "restTimerBar", restTimerBar); SetRef(so, "restTimerText", restTimerText);
-            SetRef(so, "resultsTitleText", resultsTitle); SetRef(so, "resultsDayText", resultsDay); SetRef(so, "resultsSetsText", resultsSets); SetRef(so, "resultsMuscleText", resultsMuscle); SetRef(so, "resultsRecordText", resultsRecord);
+            var so = new SerializedObject(hud);
+            so.Update();
+            SetRef(so, "rootPanel", root);
+            SetRef(so, "workoutPanel", workoutPanel);
+            SetRef(so, "restPanel", restPanel);
+            SetRef(so, "resultsPanel", resultsPanel);
+            SetRef(so, "hintPanel", hint);
+            SetRef(so, "tabWorkout", tabWorkout);
+            SetRef(so, "tabRest", tabRest);
+            SetRef(so, "tabResults", tabResults);
+            SetRef(so, "muscleValueText", muscleValue);
+            SetRef(so, "muscleSubText", muscleSub);
+            SetRef(so, "phaseBadgeText", phaseText);
+            SetRef(so, "phaseBadgeBG", phaseBadge.transform.Find("Fill").GetComponent<Image>());
+            SetRef(so, "staminaBar", staminaBar);
+            SetRef(so, "staminaPercent", staminaPercent);
+            SetRef(so, "staminaFill", staminaFill);
+            SetRef(so, "setProgressBar", setProgressBar);
+            SetRef(so, "setProgressText", setProgressText);
+            SetRef(so, "setProgressFill", setProgressFill);
+            SetRef(so, "fatigueBar", fatigueBar);
+            SetRef(so, "fatiguePercent", fatiguePercent);
+            SetRef(so, "fatigueFill", fatigueFill);
+            SetRef(so, "clickButton", clickButton);
+            SetRef(so, "clickButtonBG", clickButtonFill);
+            SetRef(so, "setDotsParent", dotsRow.transform);
+            SetRef(so, "setDotPrefab", DotPrefab());
+            SetRef(so, "setInfoText", setInfo);
+            SetRef(so, "hintText", hintText);
+            SetRef(so, "multiplierText", multiplierText);
+            SetRef(so, "trainingSpeedText", speedText);
+            SetRef(so, "restHeaderText", restHeader);
+            SetRef(so, "restMuscleText", restMuscle);
+            SetRef(so, "restTimerBar", restTimerBar);
+            SetRef(so, "restTimerText", restTimerText);
+            SetRef(so, "resultsTitleText", resultsTitle);
+            SetRef(so, "resultsDayText", resultsDay);
+            SetRef(so, "resultsSetsText", resultsSets);
+            SetRef(so, "resultsMuscleText", resultsMuscle);
+            SetRef(so, "resultsRecordText", resultsRecord);
             SetRef(so, "doneButton", doneButton);
+            SetRef(so, "screenOverlay", screenOverlayImage);
             so.ApplyModifiedProperties();
 
-            SetPrivateColor(hud, "tabActiveColor", Yellow); SetPrivateColor(hud, "tabInactiveColor", Black);
-            SetPrivateColor(hud, "warmupColor", Blue); SetPrivateColor(hud, "workZoneColor", Yellow); SetPrivateColor(hud, "failColor", Red);
+            SetPrivateColor(hud, "tabActiveColor", GoldDark);
+            SetPrivateColor(hud, "tabInactiveColor", SoftBlack);
+            SetPrivateColor(hud, "warmupColor", Lime);
+            SetPrivateColor(hud, "workZoneColor", Gold);
+            SetPrivateColor(hud, "failColor", Red);
 
-            var player = Object.FindFirstObjectByType<Tutorial.DumbbellWorkout>();
-            if (player != null) { var pSo = new SerializedObject(player); pSo.Update(); SetRef(pSo, "workoutHUD", hud); pSo.ApplyModifiedProperties(); }
+            var workout = Object.FindFirstObjectByType<Tutorial.DumbbellWorkout>();
+            if (workout != null)
+            {
+                var pSo = new SerializedObject(workout);
+                pSo.Update();
+                SetRef(pSo, "workoutHUD", hud);
+                pSo.ApplyModifiedProperties();
+            }
 
-            Selection.activeGameObject = canvasGO; Debug.Log("Workout HUD rebuilt completely with correct layout.");
+            Selection.activeGameObject = canvasGO;
+            Debug.Log("Muscle Transform style HUD rebuilt.");
         }
 
-        static GameObject Panel(GameObject parent, string name, Color fillColor, Vector2 size) {
-            var root = Child(parent, name); root.GetComponent<RectTransform>().sizeDelta = size;
-            var shadow = Child(root, "Shadow"); Stretch(shadow); shadow.GetComponent<RectTransform>().offsetMin = new Vector2(4f, -6f); shadow.GetComponent<RectTransform>().offsetMax = new Vector2(4f, -6f); shadow.AddComponent<Image>().color = Shadow;
-            var fill = Child(root, "Fill"); Stretch(fill); fill.AddComponent<Image>().color = fillColor;
-            return root; }
+        static GameObject Card(GameObject parent, string name, Color fillColor, Vector2 size)
+        {
+            var root = Child(parent, name);
+            root.GetComponent<RectTransform>().sizeDelta = size;
 
-        static (Slider, Image) Bar(GameObject parent, string name, Color fillColor, float x0, float y0, float x1, float y1) {
-            var s = Track(parent, name, Vector2.zero); Anchor(s, x0, y0, x1, y1);
-            var fill = s.transform.Find("FillArea/Fill").GetComponent<Image>(); fill.color = fillColor;
-            return (s.GetComponent<Slider>(), fill); }
+            var shadow = Child(root, "Shadow");
+            Stretch(shadow);
+            shadow.GetComponent<RectTransform>().anchoredPosition = new Vector2(6f, -8f);
+            shadow.AddComponent<Image>().color = Shadow;
 
-        static GameObject Track(GameObject parent, string name, Vector2 size) {
-            var root = Child(parent, name); if (size != Vector2.zero) root.GetComponent<RectTransform>().sizeDelta = size;
-            root.AddComponent<Image>().color = Gray; var sl = root.AddComponent<Slider>(); sl.interactable = false; sl.direction = Slider.Direction.LeftToRight;
-            var fa = Child(root, "FillArea"); Stretch(fa); var f = Child(fa, "Fill"); Stretch(f); f.AddComponent<Image>().color = Yellow;
-            sl.fillRect = f.GetComponent<RectTransform>(); sl.targetGraphic = root.GetComponent<Image>(); sl.value = 0f; return root; }
+            var fill = Child(root, "Fill");
+            Stretch(fill);
+            fill.AddComponent<Image>().color = fillColor;
+            return root;
+        }
 
-        static Button FlatButton(GameObject parent, string name, string text, Color fillColor, Color textColor, Vector2 size) {
-            var r = Panel(parent, name, fillColor, size); AddLayout(r, size.x, size.y); var b = r.AddComponent<Button>();
-            var l = Label(r, "Label", text, 28, textColor); Stretch(l.gameObject); return b; }
+        static (Slider, Image) Bar(GameObject parent, string name, Color fillColor, float x0, float y0, float x1, float y1)
+        {
+            var track = Child(parent, name);
+            Anchor(track, x0, y0, x1, y1);
+            track.AddComponent<Image>().color = Gray;
 
-        static TextMeshProUGUI Label(GameObject p, string n, string t, int s, Color c) {
-            var go = Child(p, n); var tmp = go.AddComponent<TextMeshProUGUI>(); tmp.text = t; tmp.fontSize = s; tmp.color = c;
-            tmp.alignment = TextAlignmentOptions.Center; tmp.fontStyle = FontStyles.Bold; tmp.raycastTarget = false; tmp.textWrappingMode = TextWrappingModes.NoWrap; return tmp; }
+            var slider = track.AddComponent<Slider>();
+            slider.interactable = false;
+            slider.direction = Slider.Direction.LeftToRight;
 
-        static GameObject Row(GameObject parent, string name, float height, float spacing) {
-            var row = Child(parent, name); AddLayout(row, -1f, height);
-            var layout = row.AddComponent<HorizontalLayoutGroup>(); layout.spacing = spacing; layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlHeight = true; layout.childControlWidth = true; layout.childForceExpandHeight = true; layout.childForceExpandWidth = false; return row; }
+            var fillArea = Child(track, "FillArea");
+            Stretch(fillArea);
+            fillArea.GetComponent<RectTransform>().offsetMin = new Vector2(6f, 6f);
+            fillArea.GetComponent<RectTransform>().offsetMax = new Vector2(-6f, -6f);
 
-        static void AddLayout(GameObject go, float w, float h) { var l = go.AddComponent<LayoutElement>(); if (w >= 0) l.preferredWidth = w; if (h >= 0) l.preferredHeight = h; }
-        static GameObject Child(GameObject p, string n) { var go = new GameObject(n); go.transform.SetParent(p.transform, false); go.AddComponent<RectTransform>(); return go; }
-        static void Stretch(GameObject go) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero; }
-        static void Anchor(GameObject go, float x0, float y0, float x1, float y1) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = new Vector2(x0, y0); rt.anchorMax = new Vector2(x1, y1); rt.offsetMin = rt.offsetMax = Vector2.zero; }
-        
-        static void SetAnchorBottom(GameObject go, float yCenter, Vector2 size) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f); rt.pivot = new Vector2(0.5f, 0f); rt.anchoredPosition = new Vector2(0f, yCenter); rt.sizeDelta = size; }
-        static void SetAnchorTop(GameObject go, float yCenter, Vector2 size) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f); rt.pivot = new Vector2(0.5f, 1f); rt.anchoredPosition = new Vector2(0f, yCenter); rt.sizeDelta = size; }
-        static void SetAnchorCenter(GameObject go, Vector2 offset, Vector2 size) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f); rt.pivot = new Vector2(0.5f, 0.5f); rt.anchoredPosition = offset; rt.sizeDelta = size; }
-        static void SetTopLeft(GameObject go, float x, float y) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f); rt.pivot = new Vector2(0f, 1f); rt.anchoredPosition = new Vector2(x, -y); }
-        static void SetTopRight(GameObject go, float x, float y) { var rt = go.GetComponent<RectTransform>(); rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f); rt.pivot = new Vector2(1f, 1f); rt.anchoredPosition = new Vector2(-x, -y); }
-        
-        static void SetRef(SerializedObject so, string f, Object v) { var p = so.FindProperty(f); if (p != null) p.objectReferenceValue = v; }
-        static void SetPrivateColor(WorkoutHUD h, string n, Color c) { h.GetType().GetField(n, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(h, c); }
+            var fill = Child(fillArea, "Fill");
+            Stretch(fill);
+            var image = fill.AddComponent<Image>();
+            image.color = fillColor;
 
-        static GameObject DotPrefab() {
-            const string path = "Assets/KachokGame/SetDotPrefab.prefab"; var pf = AssetDatabase.LoadAssetAtPath<GameObject>(path); if (pf != null) return pf;
-            var go = new GameObject("SetDot"); var rt = go.AddComponent<RectTransform>(); rt.sizeDelta = new Vector2(20f, 20f); go.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.35f); AddLayout(go, 20f, 20f); return PrefabUtility.SaveAsPrefabAssetAndConnect(go, path, InteractionMode.AutomatedAction);
+            slider.fillRect = fill.GetComponent<RectTransform>();
+            slider.targetGraphic = track.GetComponent<Image>();
+            slider.value = 0f;
+
+            return (slider, image);
+        }
+
+        static Button ButtonCard(GameObject parent, string name, string text, Color fillColor, Color textColor, Vector2 size)
+        {
+            var card = Card(parent, name, fillColor, size);
+            var hitbox = card.AddComponent<Image>();
+            hitbox.color = new Color(1f, 1f, 1f, 0.001f);
+            hitbox.raycastTarget = true;
+
+            var button = card.AddComponent<Button>();
+            button.targetGraphic = hitbox;
+            var label = Label(card, "Label", text, 42, textColor);
+            Anchor(label.gameObject, 0.08f, 0.30f, 0.92f, 0.82f);
+            return button;
+        }
+
+        static Button HiddenButton(GameObject parent, string name)
+        {
+            var go = Child(parent, name);
+            var rt = go.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(1f, 1f);
+            var image = go.AddComponent<Image>();
+            image.color = Color.clear;
+            return go.AddComponent<Button>();
+        }
+
+        static TextMeshProUGUI Label(GameObject parent, string name, string text, int size, Color color)
+        {
+            var go = Child(parent, name);
+            var tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = size;
+            tmp.color = color;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.raycastTarget = false;
+            tmp.textWrappingMode = TextWrappingModes.NoWrap;
+            return tmp;
+        }
+
+        static void AddLayout(GameObject go, float width, float height)
+        {
+            var layout = go.AddComponent<LayoutElement>();
+            if (width >= 0f)
+                layout.preferredWidth = width;
+            if (height >= 0f)
+                layout.preferredHeight = height;
+        }
+
+        static GameObject Child(GameObject parent, string name)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent.transform, false);
+            go.AddComponent<RectTransform>();
+            return go;
+        }
+
+        static void Stretch(GameObject go)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        static void Anchor(GameObject go, float x0, float y0, float x1, float y1)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(x0, y0);
+            rt.anchorMax = new Vector2(x1, y1);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        static void SetAnchorBottom(GameObject go, float y, Vector2 size)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, y);
+            rt.sizeDelta = size;
+        }
+
+        static void SetAnchorTop(GameObject go, float y, Vector2 size)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, y);
+            rt.sizeDelta = size;
+        }
+
+        static void SetAnchorCenter(GameObject go, Vector2 offset, Vector2 size)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = offset;
+            rt.sizeDelta = size;
+        }
+
+        static void SetTopLeft(GameObject go, float x, float y)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(x, -y);
+        }
+
+        static void SetTopRight(GameObject go, float x, float y)
+        {
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-x, -y);
+        }
+
+        static void SetRef(SerializedObject so, string field, Object value)
+        {
+            var property = so.FindProperty(field);
+            if (property != null)
+                property.objectReferenceValue = value;
+        }
+
+        static void SetPrivateColor(WorkoutHUD hud, string name, Color color)
+        {
+            hud.GetType()
+                .GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.SetValue(hud, color);
+        }
+
+        static GameObject DotPrefab()
+        {
+            const string path = "Assets/KachokGame/SetDotPrefab.prefab";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab != null)
+                return prefab;
+
+            var go = new GameObject("SetDot");
+            var rt = go.AddComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(24f, 24f);
+            go.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.25f);
+            AddLayout(go, 24f, 24f);
+            return PrefabUtility.SaveAsPrefabAssetAndConnect(go, path, InteractionMode.AutomatedAction);
         }
     }
 }
