@@ -11,3 +11,10 @@ Use this flow for larger Unity feature work:
    - then scene/prefab reference integrity
    - then targeted tests if available
 6. finish with a short manual editor checklist when visual or inspector validation is still needed
+
+Project-specific reminders:
+
+- primary scene target: `Assets/Scenes/SampleScene.unity`
+- core gameplay folder: `Assets/KachokGame/`
+- if workout HUD structure changes, update `WorkoutHUDBuilder.cs` first and let the editor regenerate the canvas
+- ignore `TextMesh Pro` example assets unless they are directly relevant

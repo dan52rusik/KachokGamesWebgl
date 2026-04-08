@@ -29,10 +29,22 @@ This skill is the default execution loop for focused Unity work in this workspac
 
 ## Project Map
 
-- `Assets/Scenes/` for scenes
-- `Assets/` for scripts, prefabs, materials, and gameplay content
+- `Assets/Scenes/SampleScene.unity` is the main scene in build settings
+- `Assets/KachokGame/Scripts/` contains the core gameplay scripts
+- `Assets/KachokGame/Editor/WorkoutHUDBuilder.cs` programmatically rebuilds the workout HUD
+- `Assets/KachokGame/SetDotPrefab.prefab` is used by the workout HUD
+- `Assets/Floreswa/` contains art/prefabs and an extra sample scene
 - `Packages/manifest.json` for dependencies
 - `ProjectSettings/` for project-wide configuration
+
+## Project Conventions
+
+- preserve the existing `Tutorial` namespace unless there is a reason to expand it
+- existing UI uses `TextMeshProUGUI`, `UnityEngine.UI`, and serialized inspector references
+- `WorkoutHUD` and `PlayerUI` are separate responsibilities:
+  - `WorkoutHUD` handles the workout/training interface
+  - `PlayerUI` handles hearts and tree counter
+- for HUD layout changes, treat the builder script as the source of truth before editing `Assets/Scenes/SampleScene.unity` directly
 
 ## Guardrails
 
@@ -40,3 +52,4 @@ This skill is the default execution loop for focused Unity work in this workspac
 - If a scene or prefab must be edited as text, change only the narrow serialized block required.
 - Do not rename or regenerate `.meta` files unless the task explicitly requires asset identity changes.
 - Keep user-authored inspector wiring intact.
+- If the task is "remove HUD" or "rebuild HUD", check both runtime scripts and `WorkoutHUDBuilder.cs`, not just the scene.

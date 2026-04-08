@@ -14,6 +14,7 @@ This skill handles larger Unity work that spans multiple files or systems.
 - building a gameplay slice across scenes, prefabs, and scripts
 - organizing delivery for UI, combat, progression, menus, or save systems
 - project-wide cleanup of obsolete structures
+- larger changes to the workout loop centered in `Assets/KachokGame/`
 
 ## Workflow
 
@@ -29,6 +30,13 @@ This skill handles larger Unity work that spans multiple files or systems.
 - any required scenes, prefabs, materials, or ScriptableObjects
 - tests only where they materially reduce regression risk
 - a concise note of any Unity-editor-only follow-up
+
+## Project Focus
+
+- prefer working inside `Assets/KachokGame/` unless the task clearly targets shared assets or sample content
+- treat `Assets/Scenes/SampleScene.unity` as the primary integration point
+- treat `Assets/KachokGame/Editor/WorkoutHUDBuilder.cs` as the preferred place for structural HUD generation
+- avoid touching `Assets/TextMesh Pro/Examples & Extras/` unless the task explicitly targets example content
 
 ## Guardrails
 
