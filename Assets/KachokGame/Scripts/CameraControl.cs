@@ -7,8 +7,11 @@ namespace Tutorial
         [SerializeField] private float speed = 8f;
         [SerializeField] private Vector3 offset = new Vector3(0f, 10f, -8f);
         [SerializeField] private float lookHeight = 1.5f;
+        [SerializeField] private Vector3 workoutOffset = new Vector3(0f, 1.8f, 3.2f);
+        [SerializeField] private float workoutLookHeight = 1.55f;
 
         private Transform _target;
+        private bool _workoutViewActive;
 
         private void Start()
         {
@@ -30,11 +33,18 @@ namespace Tutorial
                 return;
 
             Quaternion targetRotation = Quaternion.Euler(0f, _target.eulerAngles.y, 0f);
-            Vector3 rotatedOffset = targetRotation * offset;
+            Vector3 activeOffset = _workoutViewActive ? workoutOffset : offset;
+            float activeLookHeight = _workoutViewActive ? workoutLookHeight : lookHeight;
+            Vector3 rotatedOffset = targetRotation * activeOffset;
             Vector3 newPos = _target.position + rotatedOffset;
 
             transform.position = Vector3.Lerp(transform.position, newPos, speed * Time.deltaTime);
-            transform.LookAt(_target.position + Vector3.up * lookHeight);
+            transform.LookAt(_target.position + Vector3.up * activeLookHeight);
+        }
+
+        public void SetWorkoutView(bool active)
+        {
+            _workoutViewActive = active;
         }
     }
 }

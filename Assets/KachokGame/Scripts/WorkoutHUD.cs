@@ -90,6 +90,7 @@ namespace Tutorial
         private RectTransform _clickButtonRect;
         private Vector2 _btnOrigin;
         private float _fatigueSmooth;
+        private bool _peakTempoFxActive;
 
         private WorkoutSession _session;
         private StaminaSystem _stamina;
@@ -193,6 +194,26 @@ namespace Tutorial
         public void ResetTempo()
         {
             SetTempo(0f, 1f);
+            SetPeakTempoState(false, 0f);
+        }
+
+        public void SetPeakTempoState(bool active, float intensity)
+        {
+            if (active)
+            {
+                if (!_peakTempoFxActive)
+                {
+                    _peakTempoFxActive = true;
+                    if (_pulseCo != null)
+                        StopCoroutine(_pulseCo);
+                    _pulseCo = StartCoroutine(PulseOverlay(Mathf.Clamp01(intensity)));
+                }
+            }
+            else
+            {
+                _peakTempoFxActive = false;
+                StopFailFX();
+            }
         }
 
         public void HideHint()
@@ -310,10 +331,6 @@ namespace Tutorial
         private void OnPhaseChanged(WorkoutPhase phase)
         {
             ApplyPhaseBadge(phase);
-            if (phase == WorkoutPhase.MuscleFail)
-                StartFailFX();
-            else
-                StopFailFX();
         }
 
         private void OnSetCompleted(int setNum, int total, int muscle)
@@ -556,13 +573,6 @@ namespace Tutorial
                 _clickButtonRect.anchoredPosition = _btnOrigin;
         }
 
-        private void StartFailFX()
-        {
-            if (_pulseCo != null)
-                StopCoroutine(_pulseCo);
-            _pulseCo = StartCoroutine(PulseOverlay());
-        }
-
         private void StopFailFX()
         {
             if (_pulseCo != null)
@@ -575,12 +585,14 @@ namespace Tutorial
                 screenOverlay.color = Color.clear;
         }
 
-        private IEnumerator PulseOverlay()
+        private IEnumerator PulseOverlay(float intensity)
         {
-            Color red = new(0.87f, 0.1f, 0.1f, 0.22f);
+            float alpha = Mathf.Lerp(0.08f, 0.18f, intensity);
+            float speed = Mathf.Lerp(3.5f, 6f, intensity);
+            Color red = new(1f, 0.14f, 0.14f, alpha);
             while (true)
             {
-                float t = Mathf.PingPong(Time.time * 2f, 1f);
+                float t = Mathf.PingPong(Time.time * speed, 1f);
                 if (screenOverlay != null)
                     screenOverlay.color = Color.Lerp(Color.clear, red, t);
                 yield return null;

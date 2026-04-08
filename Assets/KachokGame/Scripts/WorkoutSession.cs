@@ -30,7 +30,7 @@ namespace Tutorial
 
         [Header("Конфигурация")]
         [SerializeField] private int totalSets     = 5;
-        [SerializeField] private int clicksPerSet  = 15;
+        [SerializeField] private int clicksPerSet  = 75;
         [SerializeField] private int baseMusclePerSet = 10;
 
         [Header("Пороги фаз (0–1)")]
