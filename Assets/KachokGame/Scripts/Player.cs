@@ -15,8 +15,10 @@ namespace Tutorial
         [SerializeField] private PlayerUI ui;
         [SerializeField] private Transform hitPoint;
         [SerializeField] private float hitRadius = 1f;
+        [SerializeField] private float punchForce = 1f;
 
         private Rigidbody _rb;
+        private CapsuleCollider _capsule;
         private Animator _anim;
         private bool _canHit = true;
         private int _health;
@@ -28,8 +30,11 @@ namespace Tutorial
         private void Start()
         {
             _rb = GetComponent<Rigidbody>();
+            _capsule = GetComponent<CapsuleCollider>();
             _anim = GetComponent<Animator>();
             _health = startHealth;
+
+            EnsureColliderSetup();
 
             if (_anim != null)
             {
@@ -46,6 +51,25 @@ namespace Tutorial
 
             if (ui != null)
                 ui.SetHealth(_health);
+        }
+
+        private void EnsureColliderSetup()
+        {
+            if (_capsule == null)
+            {
+                _capsule = gameObject.AddComponent<CapsuleCollider>();
+                _capsule.center = new Vector3(0f, 0.95f, 0f);
+                _capsule.height = 1.9f;
+                _capsule.radius = 0.32f;
+                _capsule.direction = 1;
+            }
+
+            if (_rb != null)
+            {
+                _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+                _rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+                _rb.interpolation = RigidbodyInterpolation.Interpolate;
+            }
         }
 
         /// <summary>Блокировка/разблокировка управления (для мини-игр)</summary>
@@ -148,12 +172,23 @@ namespace Tutorial
 
         private void Hit()
         {
-            if (hitPoint == null)
-                return;
+            Vector3 origin = hitPoint != null
+                ? hitPoint.position
+                : transform.position + Vector3.up * 1.15f + transform.forward * 0.9f;
 
-            Collider[] colliders = Physics.OverlapSphere(hitPoint.position, hitRadius);
+            Collider[] colliders = Physics.OverlapSphere(origin, hitRadius);
             for (int i = 0; i < colliders.Length; i++)
             {
+                Component bag = FindComponentInParents(colliders[i].transform, "PunchingBag");
+                if (bag != null)
+                {
+                    Vector3 contactPoint = colliders[i].ClosestPoint(origin);
+                    var hitMethod = bag.GetType().GetMethod("ApplyHit");
+                    if (hitMethod != null)
+                        hitMethod.Invoke(bag, new object[] { contactPoint, transform.forward, punchForce });
+                    continue;
+                }
+
                 Component tree = colliders[i].GetComponent("Tree");
                 if (tree != null)
                 {
@@ -185,11 +220,25 @@ namespace Tutorial
 
         private void OnDrawGizmosSelected()
         {
-            if (hitPoint == null)
-                return;
-
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(hitPoint.position, hitRadius);
+            Vector3 origin = hitPoint != null
+                ? hitPoint.position
+                : transform.position + Vector3.up * 1.15f + transform.forward * 0.9f;
+            Gizmos.DrawWireSphere(origin, hitRadius);
+        }
+
+        private static Component FindComponentInParents(Transform start, string componentName)
+        {
+            Transform current = start;
+            while (current != null)
+            {
+                Component component = current.GetComponent(componentName);
+                if (component != null)
+                    return component;
+                current = current.parent;
+            }
+
+            return null;
         }
     }
 }
