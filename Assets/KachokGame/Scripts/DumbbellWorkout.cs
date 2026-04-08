@@ -330,6 +330,8 @@ namespace Tutorial
                 return;
             if (_stageTransitionLocked)
                 return;
+            if (workoutHUD != null && workoutHUD.BlocksWorkoutInput)
+                return;
 
             _lastPumpFrame = Time.frameCount;
 

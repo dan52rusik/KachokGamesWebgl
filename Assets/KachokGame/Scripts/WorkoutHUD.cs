@@ -99,6 +99,10 @@ namespace Tutorial
         private bool _staminaBound;
         private bool _bodyBound;
 
+        public bool BlocksWorkoutInput =>
+            (restPanel != null && restPanel.activeSelf) ||
+            (resultsPanel != null && resultsPanel.activeSelf);
+
         private void Awake()
         {
             if (rootPanel != null)
@@ -546,7 +550,7 @@ namespace Tutorial
             }
 
             if (_session != null && _session.IsActive)
-                SwitchTab(0);
+                _session.EndSession();
         }
 
         private IEnumerator ShakeBtn()
